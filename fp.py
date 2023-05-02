@@ -3,7 +3,7 @@ import os
 import json
 from glob import glob 
 
-def make_fp(files,mdata):
+def make_fp(files,mdata,input_name):
     # generate slurm scripts for fp calculation, including s0, s1 opt, soc calculation, momap calculation 
     # generate python script during the calc 
     # generate slurm script and input file
@@ -24,7 +24,9 @@ def make_fp(files,mdata):
             fp.write('#SBATCH -n '+str(nproc)+'\n')
             fp.write('#SBATCH --exclusive'+'\n')
             fp.write('mkdir -p /tmp/scratch/'+str(user_name)+'/momap.$SLURM_JOB_ID'+'\n')
+            fp.write('mkdir -p /tmp/scratch/'+str(user_name)+'/momap.$SLURM_JOB_ID/gaussian'+'\n')
             #fp.write('source /public/home/chengz/MOMAP-2022A/env.sh'+'\n') 
+            fp.write('export GAUSS_SCRDIR=/tmp/scratch/'+str(user_name)+'/momap.$SLURM_JOB_ID/gaussian'+'\n')
             fp.write('module load apps/orca/5.0.2/hpcx-2.7.4-gcc-7.3.1'+'\n') 
             # cp primary input file to scratch file
             for jj in ii:
@@ -33,7 +35,7 @@ def make_fp(files,mdata):
                 tmp_path = '/tmp/scratch/'+str(user_name)+'/momap.$SLURM_JOB_ID/'+jj[2:-len(file_name)]
                 dir_path = tmp_path 
                 fp.write('mkdir -p ' + dir_path + '\n')
-                fp.write('cp '+abs_path+'input.com '+ tmp_path+'\n')
+                fp.write('cp '+abs_path+ input_name + ' '+ tmp_path+'\n')
                 fp.write('sleep 0.5'+'\n')
                 fp.write('cp '+_cwd+'/input_gen.py '+ tmp_path+'\n') 
                 fp.write('sleep 0.5'+'\n')
@@ -45,6 +47,8 @@ def make_fp(files,mdata):
                 fp.write('sleep 0.5'+'\n')
                 fp.write('cp '+_cwd+'/run_knr.py '+ tmp_path+'\n') 
                 fp.write('sleep 0.5'+'\n')
+                fp.write('cp '+_cwd+'/run_sums.py '+ tmp_path+'\n') 
+                fp.write('sleep 0.5'+'\n')
                 fp.write('cp '+_cwd+'/read_rate.py '+ tmp_path+'\n') 
                 fp.write('sleep 0.5'+'\n') 
             # do qm calculation in computational node 
@@ -55,7 +59,11 @@ def make_fp(files,mdata):
                 file_name = os.path.basename(jj)
                 fp.write('cd /tmp/scratch/'+str(user_name)+'/momap.$SLURM_JOB_ID'+'\n')
                 fp.write('cd '+str(jj[:-len(file_name)])+'\n')
-                fp.write('python input_gen.py s0-opt'+'\n')
+                if input_name == 'input.com':
+                    fp.write('python input_gen.py s0-opt ' + '\n')
+                else:
+                    fp.write('python input_gen.py s0-opt_win ' + '\n')
+                #fp.write('python input_gen.py s0-opt ' + input_name +'\n')
                 fp.write('g16 s0-opt.com'+'\n')
                 fp.write('formchk s0-opt.chk s0-opt.fchk'+'\n')
                 
@@ -63,6 +71,8 @@ def make_fp(files,mdata):
                 fp.write('python input_gen.py t1-opt'+'\n')
                 fp.write('g16 t1-opt.com'+'\n')
                 fp.write('formchk t1-opt.chk t1-opt.fchk'+'\n')
+                # check imagenary freq 
+                fp.write('python input_gen.py t1-opt-check'+'\n')
                 fp.write('python input_gen.py s0-tda'+'\n')
                 fp.write('g16 s0-tda.com'+'\n')
 
@@ -85,6 +95,7 @@ def make_fp(files,mdata):
                  
                 # do momap calculation             
                 fp.write('python run_evc.py '+ str(nproc) + '\n')
+                fp.write('python run_sums.py '+ str(nproc) + '\n')
                 fp.write('python run_kr.py '+ str(nproc) + '\n')
                 fp.write('python run_knr.py '+ str(nproc) + '\n')
                 fp.write('python read_rate.py'+'\n')          
@@ -97,7 +108,11 @@ def make_fp(files,mdata):
                 tmp_path = '/tmp/scratch/'+str(user_name)+'/momap.$SLURM_JOB_ID/'+jj[2:-len(file_name)]
                 fp.write('cp '+tmp_path+'plqy.json ' + abs_path+'\n')
                 fp.write('sleep 0.5'+'\n')
+                fp.write('cp -r '+tmp_path+'* ' + abs_path+'\n')
+                fp.write('sleep 0.5'+'\n')
                 fp.write('cp '+tmp_path+'data.json ' + abs_path+'\n')
+                fp.write('sleep 0.5'+'\n')
+                fp.write('cp -r '+tmp_path+'sum ' + abs_path+'\n')
                 fp.write('sleep 0.5'+'\n')
                 fp.write('cp '+tmp_path+'t1-opt.log ' + abs_path+'\n')
                 fp.write('sleep 0.5'+'\n')
@@ -107,6 +122,7 @@ def make_fp(files,mdata):
                 fp.write('sleep 0.5'+'\n')
                 fp.write('cp '+tmp_path+'t1-opt.fchk ' + abs_path+'\n')
                 fp.write('sleep 0.5'+'\n')
+                fp.write('cp '+tmp_path+'* ' + abs_path+'\n')
                 fp.write('rm -rf '+tmp_path+'\n')
             fp.write('rm -rf '+'/tmp/scratch/'+str(user_name)+'/momap.$SLURM_JOB_ID'+'\n')
     return task_set 
@@ -127,8 +143,8 @@ def post_fp(files):
 
 if __name__ == '__main__':
     #files = glob('./iter.init/02.fp/conf.1_1_1/input.com')
-    files = glob('./*/input.com')
+    files = glob('./Pt7/input.com')
     with open('machine.json','r') as fp:
         mdata = json.load(fp)
-    task_set = make_fp(files,mdata) 
+    task_set = make_fp(files,mdata,'input.com') 
     #calc_fp(task_set)

@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 import json 
+import numpy as np
 
 element_table = {
     'H':    1,  'He':   2,  'Li':   3,  'Be':   4,  'B':    5,
@@ -97,7 +98,7 @@ def make_opt_input(element_xyz, multiplicity, name, dump_dir=None, charge=0,
     buff = [chkkeywords, nprockeywords, memkeywords, '# {}'.format(keywords), '', titlekeywords, '', chargekeywords]
     if element_xyz != 'read_chk':
         for ixyz in element_xyz:
-            buff.append(f"{ixyz[0]} {ixyz[1]} {ixyz[2]} {ixyz[3]}")
+            buff.append(f"{ixyz[0]} {ixyz[1]:f} {ixyz[2]:f} {ixyz[3]:f}")
     buff.append('')
     pseudo_element = metal.pop()
     other_element = elems
@@ -127,7 +128,7 @@ def make_tda_input(element_xyz, name, dump_dir=None, nproc=30, mem=60, basis='6-
     elems = list(elems - metal)
     elems = " ".join(elems)
     assert len(metal) == 1, f"Heavy metals {heavymetals} not detected or more than 1"
-    assert name in ["s0-tda", "t1-tda"], "job type wrong"
+    assert name in ["s0-tda", "t1-tda", "t1-opt"], "job type wrong"
     if dump_dir is None:
         dump_dir = f"./{name}"
     chkkeywords = f'%chk={name}.chk'
@@ -137,9 +138,15 @@ def make_tda_input(element_xyz, name, dump_dir=None, nproc=30, mem=60, basis='6-
     chargekeywords = '0 1'
     if name == 's0-tda':
         keywords = "TDA(50-50,NStates=3,Root=1) PBEpbe/gen IOP(3/76=1000003333) Iop(3/77=0666706667)  pseudo=read geom=chk"
-    else:
+    elif name == 't1-tda':
         keywords = "TDA(triplet,NStates=3,Root=1) PBEpbe/gen IOP(3/76=1000003333) Iop(3/77=0666706667)  pseudo=read geom=chk"
+    else:
+        keywords = "TDA(triplet,NStates=3,Root=1) b3lyp/gen pseudo=read opt freq"
     buff = [chkkeywords, nprockeywords, memkeywords, '# {}'.format(keywords), '', titlekeywords, '', chargekeywords]
+    if name == 't1-opt':
+        for ixyz in element_xyz:
+            ixyz = [str(u) for u in ixyz]
+            buff.append(f"{ixyz[0]} {float(ixyz[1]):f} {float(ixyz[2]):f} {float(ixyz[3]):f}")
     buff.append('')
     pseudo_element = metal.pop()
     other_element = elems
@@ -188,9 +195,32 @@ def make_soc_input(element_xyz, dump_dir='soc'):
                 "%tddft\n", "nroots 25\n", "dosoc true\n", "tda false\n", "end\n",
                 f"%basis newgto {metal} \"SARC-ZORA-SVP\" end\n", "end\n", "* xyz 0 1\n"]
         for ixyz in element_xyz:
-            inps.append(f"{ixyz[0]} {ixyz[1]} {ixyz[2]} {ixyz[3]}\n")
+            inps.append(f"{ixyz[0]} {ixyz[1]:f} {ixyz[2]:f} {ixyz[3]:f}\n")
         inps.append("end")
         file.writelines(inps)
+
+def read_freq(f_name,n_atom):
+    freqs = []; images = []
+    with open(f_name,'r') as fp:
+        lines = fp.readlines()
+        for idx,line in enumerate(lines):
+            if line.startswith(' Frequencies --'):
+                freq = []
+                line = line.strip().split()
+                image = [float(u) for u in line[2:]]
+                line_tmp = lines[idx+5:idx+5+n_atom]
+                for line0 in line_tmp:
+                    line0 = line0.strip().split()
+                    freq.append([float(u) for u in line0[2:]])
+                freqs.append(freq); images.append(image)
+    neg_freq = []
+    for idx,image in enumerate(images):
+        freq = np.array(freqs[idx])
+        aa = (freq)[:,0:3]
+        for jj in range(len(image)):
+            if image[jj] < 0.:
+               neg_freq.append(freq[:,jj*3:jj*3+3])
+    return neg_freq
 
 if __name__ == '__main__':
     qm_task = sys.argv[1]
@@ -200,9 +230,14 @@ if __name__ == '__main__':
     if qm_task == 's0-opt':
         element_xyz = read_init_xyz('input.com')    
         make_opt_input(element_xyz, 1, "s0-opt", ".")
+    elif qm_task == 's0-opt_win':
+        element_xyz = read_init_xyz('input.gjf')    
+        make_opt_input(element_xyz, 1, "s0-opt", ".")
     elif qm_task == 't1-opt':
         element_xyz = read_init_xyz('s0-opt.log')
-        make_opt_input(element_xyz, 3, "t1-opt", ".")
+        os.system('cp s0-opt.chk t1-opt.chk')
+        #make_opt_input(element_xyz, 3, "t1-opt", ".")
+        make_tda_input(element_xyz, "t1-opt", ".")
     elif qm_task == 's0-tda':
         element_xyz = read_init_xyz('s0-opt.log')
         os.system("cp s0-opt.chk s0-tda.chk")
@@ -217,3 +252,21 @@ if __name__ == '__main__':
     elif qm_task == 'soc':
         element_xyz = read_init_xyz('t1-opt.log')
         make_soc_input(element_xyz, ".")
+    elif qm_task == 't1-opt-check':
+        element_xyz = read_init_xyz('t1-opt.log')
+        dire = read_freq('t1-opt.log', len(element_xyz))
+        if len(dire) == 0:
+            pass
+        else:
+            os.system('cp t1-opt.log imagenary.log')
+            os.system('rm t1-opt.log')
+            os.system('rm t1-opt.chk')
+            os.system('rm t1-opt.fchk')
+            element_xyz = np.array(element_xyz)
+            ele_sym = element_xyz[:,0:1]; ele_crd = np.array(element_xyz[:,1:],dtype=np.float64)
+            for _dire in dire:
+                ele_crd += _dire * 0.01
+            element_xyz = np.hstack((ele_sym,ele_crd))
+            make_tda_input(element_xyz, "t1-opt", ".")
+            os.system('g16 t1-opt.com')
+            os.system('formchk t1-opt.chk t1-opt.fchk')

@@ -23,14 +23,14 @@ os.system('mkdir -p knr')
 if os.path.isfile('evc/evc.dint.dat'):
     os.system('cp -r evc/evc.dint.dat knr')
     with open("knr/momap.inp", "w") as fa:
-        worksh = ["do_isc_tvcf_ft = 1\n", "do_isc_tvcf_spec = 1\n", "\n", "&isc_tvcf\n", " DUSHIN = .f.\n", " Temp = 298 K\n", " tmax = 5000 fs\n", " dt = 0.1 fs\n", f" Ead={Ead} au\n", f" Hso={Hso} cm-1\n", " DSFile=\"evc.dint.dat\"\n", " Emax = 0.3 au\n", " dE = 0.00001 au\n", " logFile = \"isc.tvcf.log\"\n", " FtFile = \"isc.tvcf.ft.dat\"\n", "FoFile = \"isc.tvcf.fo.dat\"\n", "/"]
+        worksh = ["do_isc_tvcf_ft = 1\n", "do_isc_tvcf_spec = 1\n", "\n", "&isc_tvcf\n", " DUSHIN = .f.\n", " Temp = 298 K\n", " tmax = 7500 fs\n", " dt = 0.025 fs\n", f" Ead={Ead} au\n", f" Hso={Hso} cm-1\n", " DSFile=\"evc.dint.dat\"\n", " Emax = 0.3 au\n", " dE = 0.00001 au\n", " logFile = \"isc.tvcf.log\"\n", " FtFile = \"isc.tvcf.ft.dat\"\n", "FoFile = \"isc.tvcf.fo.dat\"\n", "/"]
         fa.writelines(worksh)
 else:
     os.system('cp -r evc/evc.cart.dat knr')
     do_momap = read_reorganize_e('evc/evc.cart.dat')
     if do_momap == True:
         with open("knr/momap.inp", "w") as fa:
-            worksh = ["do_isc_tvcf_ft = 1\n", "do_isc_tvcf_spec = 1\n", "\n", "&isc_tvcf\n", " DUSHIN = .f.\n", " Temp = 298 K\n", " tmax = 5000 fs\n", " dt = 0.1 fs\n", f" Ead={Ead} au\n", f" Hso={Hso} cm-1\n", " DSFile=\"evc.cart.dat\"\n", " Emax = 0.3 au\n", " dE = 0.00001 au\n", " logFile = \"isc.tvcf.log\"\n", " FtFile = \"isc.tvcf.ft.dat\"\n", "FoFile = \"isc.tvcf.fo.dat\"\n", "/"]
+            worksh = ["do_isc_tvcf_ft = 1\n", "do_isc_tvcf_spec = 1\n", "\n", "&isc_tvcf\n", " DUSHIN = .f.\n", " Temp = 298 K\n", " tmax = 7500 fs\n", " dt = 0.025 fs\n", f" Ead={Ead} au\n", f" Hso={Hso} cm-1\n", " DSFile=\"evc.cart.dat\"\n", " Emax = 0.3 au\n", " dE = 0.00001 au\n", " logFile = \"isc.tvcf.log\"\n", " FtFile = \"isc.tvcf.ft.dat\"\n", "FoFile = \"isc.tvcf.fo.dat\"\n", "/"]
             fa.writelines(worksh)
 
 os.chdir('knr')

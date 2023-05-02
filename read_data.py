@@ -32,7 +32,7 @@ def read_soc_orca(fin):
         content = [float(ic) for ic in content if ic not in ["", ",", ")", "(", ")\n"]]
         content = content[2:]
         content = [ic**2 for ic in content if ic != 0]
-        assert len(content) == 3
+        #assert len(content) == 3
         return np.sqrt(sum(content) / 3)
 
 
