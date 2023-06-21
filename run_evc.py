@@ -14,6 +14,7 @@ with open('./evc/momap.inp','w') as fp:
     fp.write('\n'); fp.write('&evc'+'\n')
     fp.write(' ffreq(1) = \"s0-opt.log\"'+'\n')
     fp.write(' ffreq(2) = \"t1-opt.log\"'+'\n')
+    fp.write(' proj_reorg = .t.'+ '\n')
     fp.write('/'+'\n')
 os.chdir('evc')
 os.system('momap -i momap.inp -n '+nproc)
